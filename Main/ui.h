@@ -44,12 +44,12 @@ void setNavigationColorNext(void);
 void delay(uint16_t wait_ms);
 
 /* Control the vibrator motor */
-void vibrate(uint8_t status);
+void buzzer(uint8_t status);
 
-#define VIBRATE_OFF		0
-#define VIBRATE_ON		1
-#define VIBRATE_SHORT	2
-#define VIBRATE_LONG	3
+#define BUZZER_OFF		0
+#define BUZZER_ON		1
+#define BUZZER_SHORT	2
+#define BUZZER_LONG	3
 
 struct UI_struct
 {

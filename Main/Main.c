@@ -118,13 +118,7 @@ int main(void)
 	//init_bluetooth();			/* Setup the bluetooth device (1 time only)	*/
 	init_lsm303();				/* Init the acc/mag sensor				*/
 	
-	for(uint8_t i=0; i<3; i++)
-	{
-		PWR_ON;
-		delay(750);
-		PWR_OFF;
-		delay(250);
-	}
+	//buzzer(BUZZER_SHORT);
 	
 	/* Set initial values of device */
 	device.status = NO_CONNECTION;	/* Start condition */

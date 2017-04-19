@@ -275,10 +275,10 @@ uint8_t receiveCoordinates(void)
 		
 		c = uart_getc();	// get new byte
 	}
-	return parse_assignment();	// fill vars
+	return read_int_value();	// fill vars
 }
 /*
-uint8_t parse_assignment (void)
+uint8_t read_int_value (void)
 {
 	char *pch;
 	//double val=0;
@@ -481,20 +481,8 @@ void get_serial(void)
 		}
 	}	
 }
-/*
-void copy_command ()
-{
-	// The USART might interrupt this - don't let that happen!
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
-		// Copy the contents of data_in into command_in
-		memcpy(command_in, data_in2, 8);
 
-		// Now clear data_in, the USART can reuse it now
-		memset(data_in2[0], 0, 8);
-	}
-}*/
-
-unsigned long parse_assignment ()
+unsigned long read_int_value ()
 {
 	char *pch;
 	char cmdValue[16];
@@ -511,15 +499,16 @@ unsigned long parse_assignment ()
 
 void process_command()
 {
+	uint16_t val = 0;
 	static unsigned int test;
 	switch (command_in[0]) {
-		case 'S':
+		case 'O':
 		if (command_in[1] == '?') {
 			// Do the query action for S
 			uart_puts("Asked S value\n");
 			print_value('S',test);
 			} else if (command_in[1] == '=') {
-			test = parse_assignment();
+			test = read_int_value();
 			uart_puts("Received S value\n");
 			print_value('S',test);
 		}
@@ -533,7 +522,7 @@ void process_command()
 		}
 		break;
 		
-		case 'V':	// Vibrate
+		case 'V':	// BUZZER
 		if (command_in[1] == '1') 
 		{
 			PWR_ON;
@@ -546,25 +535,232 @@ void process_command()
 		
 		if (command_in[1] == 'S')
 		{
-			uart_puts("Vibrate!\n");
-			vibrate(VIBRATE_SHORT);	
+			uart_puts("BUZZER!\n");
+			buzzer(BUZZER_SHORT);	
 		}
 		
 		if (command_in[1] == 'L')
 		{
-			uart_puts("Vibrate!\n");
-			vibrate(VIBRATE_LONG);
+			uart_puts("BUZZER!\n");
+			buzzer(BUZZER_LONG);
 		}
 		
 		break;
 		
-		case 'b':
-		receive_gps();
+		case 'A':	// Set led
+		TEST_ON;
+		if (debug_on)	uart_puts("Set led\n");
+		break;
+			
+		case 'a':	// reset led
+		TEST_OFF;
+		if (debug_on)	uart_puts("Reset led\n");
 		break;
 		
-		default:
-		uart_puts("NOT RECOGNISED\r\n");
+			
+		case 'b':	/* Begin of message from phone */
+		if (receive_gps())
+		{
+			if (debug_on)
+			{
+				uart_puts("Received correct coordinates:\n");
+				uart_puts("Location:");
+				print_float(lat_current,0);
+				uart_puts(",");
+				print_float(lon_current,0);
+				uart_puts(" Destination: ");
+				print_float(lat_dest,0);
+				uart_puts(",");
+				print_float(lon_dest,1);
+			}
+				
+			device.distance = calculate_distance(lat_current,lon_current,lat_dest,lon_dest);
+			device.heading = calculate_bearing(lat_current,lon_current,lat_dest,lon_dest);
+			if (debug_on)
+			{
+				uart_puts("Distance = ");
+				print_float(device.distance,0);
+				uart_puts("KM\n");
+				uart_puts("Bearing = ");
+				print_float(device.heading,0);
+				uart_puts("deg\n");
+			}
+			uart_puts("OK\n");
+			device.newdata=TRUE;
+		}
+		else
+		{
+			if (debug_on)
+			{
+				uart_puts("Received wrong coordinate format\n");
+			}
+		}
 		break;
+			
+		case 'B':	// Check battery adc value
+		device.battery = read_battery();
+		setLedPercentage(device.battery,MULTIPLE,GREEN,125);	/* Show battery percentage on display */
+		_delay_ms(750);		/* Wait for the user to be able to see the battery percentage */
+		clearLeds();
+		//read_battery();
+		break;
+			
+		case 'c':	// Give calibration values
+		print_calibration_lsm303();	/* Print calibration values of this LSM303 sensor (min/max data) */
+		break;
+			
+		case 'C':	// Check charge status
+		device.chargingstate = read_charge_status();
+		break;
+			
+		case 'D':	/* Turn on/off distance on display */
+		UI.showdistance = (UI.showdistance) ? FALSE : TRUE;
+		eeprom_update_word(&eeprom_showdistance, UI.showdistance);	/* Save in EEPROM */
+		if (debug_on)
+		{
+			uart_puts_p(PSTR("Show UI distance = "));
+			print_int(UI.showdistance,1);
+		}
+		break;
+			
+		case '?':	// Debug msg on
+		if (debug_on)
+		{
+			debug_on = 0;
+			uart_puts_p(PSTR("Debug msg's off\n"));
+		}
+		else
+		{
+			debug_on = 1;
+			uart_puts_p(PSTR("Debug msg's on\n"));
+		}
+		break;
+			
+		case 'e':	/* direction test */
+		val = readCommand();
+		if (val>=0 && val<=100)
+		{
+			device.distance = val;
+			device.newdata=TRUE;
+		}
+			
+		if (debug_on)
+		{
+			uart_puts_p(PSTR("Compass value set to"));
+			print_int(device.compass,1);
+		}
+		break;
+			
+		case 'F':	/* Flashlight mode */
+		if (debug_on)
+		{
+			uart_puts("Flashlight mode = TODO! ");
+		}
+		device.newdata=TRUE;
+		break;
+			
+		case 's':	/* Set navigation color */
+		uart_puts_p(PSTR("TODO, implement set navigation color\n"));
+		break;
+			
+		case 'I':	/* Intensity of display */
+		setBrightness(readCommand());
+		eeprom_update_word(&eeprom_brightness, getBrightness());	/* Save in EEPROM */
+		device.newdata=TRUE;
+		if (debug_on)
+		{
+			uart_puts_p(PSTR("Brightness set to:"));
+			print_int(getBrightness(),1);
+		}
+		break;
+			
+		case 'N':	/* Show north point on display */
+		UI.shownorth = (UI.shownorth) ? FALSE : TRUE;
+		eeprom_update_word(&eeprom_shownorth, UI.shownorth);	/* Save in EEPROM */
+		if (debug_on)
+		{
+			uart_puts_p(PSTR("Show UI North = "));
+			print_int(UI.shownorth,1);
+		}
+		break;
+			
+		case 'P':	// Power off
+		if (debug_on)
+		{
+			uart_puts_p(PSTR("Powering off..\n"));
+			control_power(OFF);
+		}
+		break;
+			
+		case 'r':	// Reset device to factory settings
+		if (debug_on)
+		{
+			uart_puts_p(PSTR("Resetting Bluetooth settings!\n"));
+		}
+		init_bluetooth();
+		break;
+			
+		case 'R':	// Reset device to factory settings
+		if (debug_on)
+		{
+			uart_puts_p(PSTR("Device reseted to factory settings!\n"));
+		}
+		reset_factory_settings();
+		break;
+			
+		case 'S':	// Check switch
+		device.buttonstate = read_button();
+		break;
+			
+		case 'T':	// get temp of LSM303 sensor
+		uart_puts("Temperature = ");
+		print_int(get_temp(),FALSE);
+		uart_puts(" deg. C.\n");
+		break;
+			
+		case 'u':	/* Change UI mode */
+		if (debug_on)
+		{
+			uart_puts("UI mode++");
+		}
+		setUIModeNext();
+		eeprom_update_word(&eeprom_displaymode, getUIMode());	/* Save in EEPROM */
+		device.newdata=TRUE;
+		break;
+			
+		case 'U':	/* Change UI mode */
+		//setUIMode();
+		setUIMode(readCommand());
+		if (debug_on)
+		{
+			uart_puts("UI mode = ");
+			print_int(getUIMode(),1);
+		}
+		eeprom_update_word(&eeprom_displaymode, getUIMode());	/* Save in EEPROM */
+		device.newdata=TRUE;
+		break;
+			
+		case 'K':	/* Change navigation color */
+		if (debug_on)
+		{
+			uart_puts("Navigation color set\n");
+			//print_int(getUIMode(),1);
+		}
+		setNavigationColorNext();
+			
+		//eeprom_update_word(&eeprom_displaymode, getUIMode());	/* Save in EEPROM */
+		device.newdata=TRUE;
+		break;
+			
+		default:
+		uart_puts("No valid command:");
+		uart_putc(command_in[0]);
+		uart_puts(" (");
+		print_int(command_in[0], 0);
+		uart_puts(")\n");
+		uart_puts_p(PSTR("'?' = debug messages\n"));
+		break;
+		
 	}
 	command_ready = FALSE;
 }
@@ -575,7 +771,7 @@ uint8_t receive_gps(void)
 	// ex. b123.456,234.567;222.333,444.555e
 	double lat_current_temp, lon_current_temp, lat_dest_temp, lon_dest_temp;
 	char value[50];
-	char buffer[20];
+	char buffer[50];
 	uint8_t i = 1;
 	char *pch;
 	
@@ -611,64 +807,37 @@ uint8_t receive_gps(void)
 	lon_dest_temp = atof(pch);
 	
 	//sprintf(lat_current_temp, "value = %f");
-	sprintf(buffer, "Lat curr = %0.5f", lat_current_temp);
-	uart_puts(buffer);
-	uart_puts("\n");
-	sprintf(buffer, "Lon curr = %0.5f", lon_current_temp);
-	uart_puts(buffer);
-	uart_puts("\n");
-	sprintf(buffer, "Lat dest = %0.5f", lat_dest_temp);
-	uart_puts(buffer);
-	uart_puts("\n");
-	sprintf(buffer, "Lon dest =  %0.5f", lon_dest_temp);
-	uart_puts(buffer);
-	uart_puts("\n");
-	
-	
-	//uart_puts("fucntion=");
-	//print_float(lat_current_temp, TRUE);
-	
-	//print_float(lat_current_temp, TRUE);
-	
-	/*pch = strtok (NULL, ";");
-	lon_current = atof(pch);
-	
-	pch = strtok (NULL, ",");
-	lat_dest = atof(pch);
-	
-	pch = strtok (NULL, "e");
-	lon_dest = atof(pch);
-	
-	uart_puts("floattest:\n");
-	char temp[20];
-	sprintf(temp,"\ndata_f=%f",lat_current);
-	uart_puts(temp);*/
-	
-	
-	
-	/*if (command_in[i] != 'e')
+	if (debug_on)
 	{
-		uart_puts("No e found (end)");
+		sprintf(buffer, "Lat curr = %0.5f", lat_current_temp);
+		uart_puts(buffer);
+		uart_puts("\n");
+		sprintf(buffer, "Lon curr = %0.5f", lon_current_temp);
+		uart_puts(buffer);
+		uart_puts("\n");
+		sprintf(buffer, "Lat dest = %0.5f", lat_dest_temp);
+		uart_puts(buffer);
+		uart_puts("\n");
+		sprintf(buffer, "Lon dest =  %0.5f", lon_dest_temp);
+		uart_puts(buffer);
+		uart_puts("\n");
+	}
+	
+	/* coordinates are feasible */
+	if ((lat_current_temp!=0)&&
+		(lon_current_temp!=0)&&
+		(lat_dest_temp!=0)&&
+		(lon_dest_temp!=0))
+	{
+		lat_current = lat_current_temp;
+		lon_current = lon_current_temp;
+		lat_dest = lat_dest_temp;
+		lon_dest = lon_dest_temp;
+		return TRUE;
+	}
+	else
+	{
+		uart_puts("No correct coordinates\n");
 		return FALSE;
-	}*/
-		
-	
-	//for(uint8_t i=1; i<data_count; i++)
-	/*{
-		// Lat current 
-		while(command_in[i]!=',')
-		{
-			uart_puts("rec=");
-			uart_putc(command_in[i]);
-			uart_puts("\n");
-			value += command_in[i];
-			i++;
-		}
-		lat_current_temp = atof(value);
-		uart_puts("lat=");
-		print_float(lat_current_temp, TRUE);
-		
-	}*/
-	
-	return 0;
+	}
 }

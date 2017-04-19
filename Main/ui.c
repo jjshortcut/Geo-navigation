@@ -587,35 +587,35 @@ void refreshDisplay(uint16_t north_deg, uint16_t destination_deg, uint8_t status
 		UI.refresh = FALSE;
 }
 
-void vibrate(uint8_t status)
+void buzzer(uint8_t status)
 {
 	uint8_t i;
 	
 	switch (status)
 	{
-		case VIBRATE_ON:
+		case BUZZER_ON:
 			PWR_OFF;
 		break;
 		
-		case VIBRATE_OFF:
+		case BUZZER_OFF:
 			PWR_ON;
 		break;
 		
-		case VIBRATE_SHORT:
+		case BUZZER_SHORT:
 			for(i=0; i<3; i++)
 			{
 				PWR_ON;
-				delay(500);
+				delay(250);
 				PWR_OFF;
-				delay(500);
+				delay(250);
 			}
 		break;
 		
-		case VIBRATE_LONG:
+		case BUZZER_LONG:
 		for(i=0; i<3; i++)
 			{
 				PWR_ON;
-				delay(1000);
+				delay(750);
 				PWR_OFF;
 				delay(500);
 			}

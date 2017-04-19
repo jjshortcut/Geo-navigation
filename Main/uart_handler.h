@@ -36,7 +36,7 @@ volatile uint8_t command_ready;
 
 void process_serial(void);
 uint8_t receiveCoordinates(void);
-//uint8_t parse_assignment (void);
+//uint8_t read_int_value (void);
 uint16_t readCommand(void);	/* handle normal command e.g. U=1 (UI-mode 2)*/
 
 uint8_t receive_gps(void);
@@ -50,7 +50,7 @@ char command_in[100];
 
 volatile unsigned char data_count;
 volatile unsigned char command_ready;
-unsigned long parse_assignment ();
+unsigned long read_int_value();
 void process_command();
 
 #endif
