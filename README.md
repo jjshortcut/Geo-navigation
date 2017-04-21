@@ -5,6 +5,8 @@ Welcome to the Geo-navigation wiki!
 
 **HM-10 BLE module settings:**
 - Baud = 9600
+- Default pair password: 000000
+
 
 Characteristic of HM-10 are:
 - Service UUID: 0xFFE0 (Service UUID: 0000ffe0-0000-1000-8000-00805f9b34fb)
