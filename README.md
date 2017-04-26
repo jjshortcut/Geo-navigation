@@ -17,3 +17,7 @@ When the central device wants to send data to the module, it WRITES the charactr
 When the module wants to send data, it sends a NOTIFICATION to the central device
 
 http://blog.blecentral.com/2015/05/05/hm-10-peripheral/
+
+App inventor app info:
+https://docs.google.com/document/d/15zITbnBhR2AR82zTiTV6DgJUNhtPpEuGOawesecmy54/edit
+
