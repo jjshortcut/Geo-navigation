@@ -21,50 +21,47 @@ void control_power(uint8_t value)
 void check_device_status(void)
 {
 	device.buttonstate = read_button();				// 1=pressed
-	device.chargingstate = read_charge_status();
+	//device.chargingstate = read_charge_status();
 	//device.battery = read_battery();
 	
 	if ((device.buttonstate==BUTTON_PRESSED))	// set state
 	{
-		if ((device.status!=BUTTON_PRESSED))
+		if ((read_device_status()!=BUTTON_PRESSED))
 		{
-			uart_puts("Button pressed\n");
-			device.previousstatus = device.status;
-			device.status = BUTTON_PRESSED;
+			if (debug_on){uart_puts("Button pressed\n");}
+			set_device_status(BUTTON_PRESSED);
 		}
 	}
 	else
 	{
-		if ((device.buttonstate==BUTTON_NOT_PRESSED)&&(device.status==BUTTON_PRESSED)) // reset state
+		if ((device.buttonstate==BUTTON_NOT_PRESSED)&&(read_device_status()==BUTTON_PRESSED)) // reset state
 		{
-			uart_puts("Button released\n");
-			device.status = BUTTON_NOT_PRESSED;	// released
+			if (debug_on){uart_puts("Button released\n");}
+			device.status = BUTTON_NOT_PRESSED;	// Fix this.. stays in a loop due to loss of previous state before button..
 		}
-		else if (device.status==BUTTON_NOT_PRESSED)
+		else if (read_device_status()==BUTTON_NOT_PRESSED)
 		{
-			device.status = device.previousstatus;
+			set_previous_device_status();
 		}
 		else
 		{
 			if (timeout_timer<TIMEOUT_TIME) // still ok
 			{
-				//device.status = NAVIGATING;
 				timeout_timer++;
 			}
 			else //time-out
 			{
 				timeout_timer = 40;
-				if (device.status!=NO_CONNECTION)
+				if (read_device_status()!=NO_CONNECTION)
 				{
-					device.previousstatus = device.status;
-					device.status = NO_CONNECTION;
-					uart_puts("We have NO Connection (time-out)..\n");
+					set_device_status(NO_CONNECTION);
+					if (debug_on){uart_puts("We have NO Connection (time-out)..\n");}
 				}
 			}
 			
 			if (device.newdata)
 			{
-				device.status = NAVIGATING;
+				set_device_status(NAVIGATING);
 				device.newdata = FALSE;
 				timeout_timer = 0;	// reset timer
 			}
@@ -76,12 +73,12 @@ uint8_t read_button(void)
 {
 	if(debug_on)
 	{
-		uart_puts("Button state = ");
-		print_int(SW_STATUS, 1);
+		//uart_puts("Button state = ");
+		//print_int(SW_STATUS, 1);
 		
 		if (!SW_STATUS)	// If pressed, pulled low
 		{
-			uart_puts("Pressed\n");
+			//uart_puts("Pressed\n");
 		}
 	}
 	

@@ -31,6 +31,7 @@ TODO:
 - Gain of compass OK? if reading = -4096 the gain is to high (overflow)
 - Save calibration in EEPROM?
 - fix setLedValue 0's between values
+- Error is now calculated, make sure to check on this error
 */
 
 //#include "global.h"
@@ -114,16 +115,16 @@ int main(void)
 	
 	uart_init( UART_BAUD_SELECT(UART_BAUD_RATE,F_CPU) );	/* Init Uart */
 	sei();						/* Enable global interrupts for uart*/
+	uart_puts("Init Uart OK\n");
 	
 	//init_bluetooth();			/* Setup the bluetooth device (1 time only)	*/
 	init_lsm303();				/* Init the acc/mag sensor				*/
-	
+	uart_puts("Init LSM303 OK\n");
 	//buzzer(BUZZER_SHORT);
 	
 	/* Set initial values of device */
-	device.status = NO_CONNECTION;	/* Start condition */
-	device.previousstatus = NO_CONNECTION;
-	device.compass = get_heading_avg(10);	/* Get initial value */
+	set_initial_device_status();			/* Start condition */
+	device.compass = get_heading_avg(25);	/* Get initial value */
 	
 	if(eeprom_read_word(&eeprom_first_startup))
 	{
@@ -156,26 +157,14 @@ int main(void)
 	uart_puts(" deg. C.\n");
 	//setLedValue(device.temperature,100);
 	//_delay_ms(750);		/* Wait for the user to be able to see the battery percentage */
-	
-	
-	uart_puts("TODO: FIX UART receive coordinates!!\n");
+	//uart_puts("TODO: FIX UART receive coordinates!!\n");
 	while(1)
 	{	
-		
-		//if (command_ready == TRUE) {
-			//copy_command();
-			get_serial();
-			if (command_ready)
-			{
-				//process_command();
-			}
-			
-
-			//command_ready = FALSE;
-		//}
-		
-		
-		//TEST_TOGGLE;
+		get_serial();
+		if (command_ready)
+		{
+			//process_command();
+		}
 		//process_serial();							/* Check for serial messages */	
 		
 		//device.compass = rollingAverage(get_heading_avg(10));	// filter out noise spikes or quick changes
@@ -187,11 +176,11 @@ int main(void)
 		
 		if (UI.refresh)	// Refresh display
 		{
+			print_status();
 			check_device_status();						/* Check status of device for time-out's and button etc. */
-			refreshDisplay(device.compass, device.heading, device.status);	
+			refreshDisplay(device.compass, device.heading, read_device_status());	
 		}
 		
-		//print_status();
 		if (device.buttonaction)	// button action active
 		{
 			do_button_action();	
@@ -229,6 +218,9 @@ void init_io(void)
 	DDRB |= (1<<0);	// PB0 AS OUTPUT
 	BATT_PWR_INIT;	// Leds as output
 	BATT_PWR_OFF;	// Leds off
+	
+	//AT_PIN_INIT;
+	//AT_ON;
 }
 
 void init_int(void)
@@ -370,12 +362,7 @@ void do_button_action(void)
 		break;
 		
 		case LONG_PRESS:
-			_delay_ms(750);
-			clearLeds();
-			_delay_ms(250);
-			setLedPercentage(read_battery(),MULTIPLE,GREEN,100);	/* Do something*/
-			_delay_ms(750);
-			
+			uart_puts("next\n");			// Found coordinate, go to new one in App			
 			if (debug_on)
 			{uart_puts("Long press action executed\n");}	
 		break;
@@ -390,7 +377,7 @@ void do_button_action(void)
 void print_status(void)
 {
 	uart_puts("Device status = ");
-	switch (device.status)
+	switch (read_device_status())
 	{
 		case NO_CONNECTION:
 			uart_puts("NO CONNECTION\n");
@@ -408,6 +395,10 @@ void print_status(void)
 			uart_puts("BUTTON NOT PRESSED\n");
 		break;
 		
+		case AT_LOCATION:
+		uart_puts("AT_LOCATION\n");
+		break;
+		
 		default:
 			uart_puts("ERROR!\n");
 		break;
@@ -416,17 +407,33 @@ void print_status(void)
 
 uint16_t filtered_compass_reading(uint16_t heading_current)
 {
-	int16_t heading_new = get_heading_avg(10);
+	int16_t heading_new = get_heading_avg(100);
 	uint16_t difference = 0;
 	static uint16_t error_counter = 0;
 	int error = 0;
 	
-	// Calculate error
-	error = heading_current - heading_new;
-	if (error>180)
+	if (heading_current>heading_new)
 	{
-		error -= 360;	// for angles > 180 correct in the opposite direction
+		difference = heading_current - heading_new;
 	}
+	else
+	{
+		difference = heading_new - heading_current;
+	}
+	if (difference>180)
+	{
+		difference -= 360;	// for angles > 180 correct in the opposite direction
+	}
+	
+	error = difference;
+	
+	
+	// Calculate error
+	//error = heading_current - heading_new;
+	//if (error>180)
+	//{
+	//	error -= 360;	// for angles > 180 correct in the opposite direction
+	//}
 	
 	/*if (heading_current>=heading_new)
 	{
@@ -457,9 +464,13 @@ uint16_t filtered_compass_reading(uint16_t heading_current)
 		print_int(heading_current,FALSE);
 		uart_puts(" New: ");
 		print_int(heading_new,FALSE);
-		uart_puts(" Error: ");
+		uart_puts(" Difference: ");
 		print_int(difference,FALSE);
+		uart_puts(" Error: ");
+		print_int(error,FALSE);
 	}
+	
+	//print_int(heading_current,TRUE);
 	
 	if ((error>SENSOR_THRESHOLD)&&(error_counter<ERROR_THRESHOLD_NR))
 	{
@@ -537,6 +548,31 @@ uint16_t load_eeprom_parameter(uint16_t param)
 {
 	return eeprom_read_word(&param);
 }
+
+void set_initial_device_status(void)
+{
+	device.status = NO_CONNECTION;
+	device.previousstatus = NO_CONNECTION;
+}
+
+uint8_t set_device_status(uint8_t status)
+{
+	device.previousstatus = device.status;	// Save previous state
+	device.status = status;					// Write new state
+	return device.status;
+}
+
+uint8_t set_previous_device_status(void)
+{
+	device.status = device.previousstatus;	// Go to previous state
+	return device.previousstatus;
+}
+
+uint8_t read_device_status(void)
+{
+	return device.status;
+}
+
 /*
 float codeValue(char *line) {
 	return (strtof(line + 1, NULL)); //Pointer is to gcode char. Add 1 for value

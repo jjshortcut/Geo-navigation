@@ -44,6 +44,7 @@
 /* Device_status */
 #define NAVIGATING 2
 #define NO_CONNECTION 3
+#define AT_LOCATION 4
 
 /* Button state*/
 #define BUTTON_PRESSED 1
@@ -84,6 +85,11 @@ void reset_factory_settings(void);	/* Reset the settings of device, also in EEPR
 extern uint16_t EEMEM eeprom_first_startup, eeprom_brightness, eeprom_displaymode, eeprom_showdistance, eeprom_shownorth;
 extern uint32_t EEMEM eeprom_navigationcolor;
 
+/* Functions to keep track of status of device */
+void set_initial_device_status(void);
+uint8_t set_device_status(uint8_t status);
+uint8_t set_previous_device_status(void);
+uint8_t read_device_status(void);
 
 //#define ADC_PIN_PORT	PORTC
 //#define ADC_PIN			PC6
@@ -136,6 +142,7 @@ extern uint32_t EEMEM eeprom_navigationcolor;
 #define AT_PIN_DDR	DDRD
 #define AT_PIN_PORT	PORTD
 #define AT_PIN_REG	PIND
+#define AT_PIN_INIT	(AT_PIN_DDR |= (1<<AT_PIN))		
 #define AT_ON		(AT_PIN_PORT = (1 << AT_PIN))			// debug led on
 #define AT_OFF 		(AT_PIN_PORT &= ~(1 << AT_PIN))			// debug led off
 

@@ -364,7 +364,7 @@ void refreshDisplay(uint16_t north_deg, uint16_t destination_deg, uint8_t status
 			if (device.buttonstate==BUTTON_PRESSED)
 			{
 				for(uint8_t i=0; i<=button_counter; i++) {
-					if (i<=6)
+					if (i<=5)
 					{
 						writeBuffer(i+1,BLUE);			/*  */
 					}
@@ -378,8 +378,6 @@ void refreshDisplay(uint16_t north_deg, uint16_t destination_deg, uint8_t status
 				if (button_counter>12)	/* Counter full, reset */
 				{
 					device.buttonaction = LONG_PRESS;
-					//uart_puts("Long press action\n");
-					//device.status = device.previousstatus;		/* Go to earlier state */
 					button_counter=0;
 				}
 			}	
@@ -391,15 +389,11 @@ void refreshDisplay(uint16_t north_deg, uint16_t destination_deg, uint8_t status
 				if (button_counter<=6)
 				{
 					device.buttonaction = SHORT_PRESS;	/* short press action */
-					//uart_puts("Short press action\n");
 				}
 				if (button_counter>6)
 				{
 					device.buttonaction = MIDDLE_PRESS;	/* Middle press action */
-					//uart_puts("Middle press action\n");
 				}
-				//device.status = device.previousstatus;	/* Go to earlier state */
-				//device.status = NAVIGATING;
 				button_counter = 0;							/* Released button */
 			}
 		break;
@@ -562,6 +556,24 @@ void refreshDisplay(uint16_t north_deg, uint16_t destination_deg, uint8_t status
 			}
 		break;
 		
+		case AT_LOCATION:	/* Arrived at location */
+			// Do some animation and wait for the button to be pressed..
+			ui_counter++;
+			
+			writeBuffer(ui_counter,RED);
+			
+			if (ui_counter<4)	{writeBuffer(ui_counter+9,ORANGE);}
+			else {writeBuffer(ui_counter-3,ORANGE);}
+				
+			if (ui_counter<7)	{writeBuffer(ui_counter+6,GREEN);}
+			else {writeBuffer(ui_counter-6,GREEN);}
+				
+			if (ui_counter<10)	{writeBuffer(ui_counter+3,LIGHT_BLUE);}
+			else {writeBuffer(ui_counter-9,LIGHT_BLUE);}	
+			
+			ui_counter = (ui_counter>=12) ? 0 : ui_counter;
+		break;
+		
 		default:
 		uart_puts("UNKNOWN status!\n");
 		break;
@@ -625,3 +637,6 @@ void buzzer(uint8_t status)
 		break;
 	}
 }
+
+
+

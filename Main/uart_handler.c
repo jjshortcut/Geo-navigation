@@ -26,9 +26,9 @@ void process_serial(void)
 	{
 		switch (c)
 		{
-			case 'A':	// Set led
-				TEST_ON;
-				if (debug_on)	uart_puts("Set led\n");
+			case 'A':	// Arrived at location
+				set_device_status(AT_LOCATION);
+				if (debug_on)	uart_puts("Arrived at location\n");
 			break;
 			
 			case 'a':	// reset led
@@ -547,9 +547,9 @@ void process_command()
 		
 		break;
 		
-		case 'A':	// Set led
-		TEST_ON;
-		if (debug_on)	uart_puts("Set led\n");
+		case 'A':	// Arrived at location
+		set_device_status(AT_LOCATION);
+		if (debug_on)	uart_puts("Arrived at location\n");
 		break;
 			
 		case 'a':	// reset led
